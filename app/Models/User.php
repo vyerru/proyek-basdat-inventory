@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,53 +9,89 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $table = 'user'; 
-    protected $primaryKey = 'iduser'; 
-    public $timestamps = false;
+    protected $table = 'user';
+    protected $primaryKey = 'iduser';
+    public $timestamps = false; // Sesuai schema SQL Anda
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'username',
+        'password', // Hati-hati, ini plain text!
+        'idrole',
     ];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
      */
     protected $hidden = [
         'password',
-        // 'remember_token',
     ];
 
     /**
      * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
      */
     protected function casts(): array
     {
-        return [
-            // 'email_verified_at' => 'datetime',
-            // 'password' => 'hashed',
-        ];
+        return []; // Kosongkan karena password tidak di-hash
     }
+
+    // Relasi ke Role
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'idrole');
     }
 
+    // Method helper untuk cek role
     public function hasRole(string $roleName): bool
     {
-        return $this->role()->where('nama_role', $roleName)->exists();
+        return $this->role && $this->role->nama_role === $roleName;
     }
+
+    // --- Penyesuaian untuk Laravel Auth ---
+
+    /**
+     * Gunakan 'username' sebagai pengganti 'email' untuk login.
+     */
+    public function getAuthIdentifierName()
+    {
+        return 'username';
+    }
+
+    /**
+     * Ambil password (plain text dalam kasus ini).
+     */
+    public function getAuthPassword()
+    {
+        return $this->password;
+    }
+
+     /**
+      * Ambil identifier unik (primary key).
+      */
+     public function getAuthIdentifier()
+     {
+         return $this->getKey();
+     }
+
+     /**
+      * Kosongkan method terkait "remember token" jika tidak ada kolomnya.
+      */
+     public function getRememberToken()
+     {
+         return null;
+     }
+
+     public function setRememberToken($value)
+     {
+         // Tidak melakukan apa-apa
+     }
+
+     public function getRememberTokenName()
+     {
+        return null;
+     }
 }

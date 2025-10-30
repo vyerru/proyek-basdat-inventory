@@ -1,8 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB; // Pastikan DB facade di-use
 
 return new class extends Migration
 {
@@ -11,8 +10,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // --- View Barang ---
+        // View Barang (Semua Status)
         DB::statement("
-            CREATE VIEW view_atk AS
+            CREATE OR REPLACE VIEW view_barang_all AS
             SELECT
                 b.idbarang,
                 b.nama AS nama_barang,
@@ -24,16 +25,36 @@ return new class extends Migration
                     ELSE 'Lainnya'
                 END AS jenis_barang,
                 CASE b.status
-                    WHEN 1 THEN 'Aktif'
+                    WHEN A THEN 'Aktif'
                     ELSE 'Tidak Aktif'
                 END AS status_barang
             FROM barang b
             JOIN satuan s ON b.idsatuan = s.idsatuan;
         ");
 
-
+        // View Barang (Hanya Aktif)
         DB::statement("
-            CREATE VIEW view_satuan AS
+            CREATE OR REPLACE VIEW view_barang_active AS
+            SELECT
+                b.idbarang,
+                b.nama AS nama_barang,
+                s.nama_satuan,
+                b.harga,
+                CASE b.jenis
+                    WHEN 'J' THEN 'Barang Jadi'
+                    WHEN 'B' THEN 'Bahan Baku'
+                    ELSE 'Lainnya'
+                END AS jenis_barang,
+                'Aktif' AS status_barang
+            FROM barang b
+            JOIN satuan s ON b.idsatuan = s.idsatuan
+            WHERE b.status = 1;
+        ");
+
+        // --- View Satuan ---
+        // View Satuan (Semua Status)
+        DB::statement("
+            CREATE OR REPLACE VIEW view_satuan_all AS
             SELECT
                 idsatuan,
                 nama_satuan,
@@ -44,9 +65,22 @@ return new class extends Migration
             FROM satuan;
         ");
 
-        // View untuk Vendor
+        // View Satuan (Hanya Aktif)
         DB::statement("
-            CREATE VIEW view_vendor AS
+            CREATE OR REPLACE VIEW view_satuan_active AS
+            SELECT
+                idsatuan,
+                nama_satuan,
+                'Aktif' AS status_satuan
+            FROM satuan
+            WHERE status = 1;
+        ");
+
+
+        // --- View Vendor ---
+        // View Vendor (Semua Status)
+        DB::statement("
+            CREATE OR REPLACE VIEW view_vendor_all AS
             SELECT
                 idvendor,
                 nama_vendor,
@@ -64,9 +98,28 @@ return new class extends Migration
             FROM vendor;
         ");
 
-         // View untuk User dan Role
+        // View Vendor (Hanya Aktif)
         DB::statement("
-            CREATE VIEW view_user_role AS
+            CREATE OR REPLACE VIEW view_vendor_active AS
+            SELECT
+                idvendor,
+                nama_vendor,
+                CASE badan_hukum
+                    WHEN 'Y' THEN 'Ya'
+                    WHEN 'C' THEN 'CV'
+                    WHEN 'N' THEN 'Tidak'
+                    ELSE 'Lainnya'
+                END AS status_badan_hukum,
+                'Aktif' AS status_vendor
+            FROM vendor
+            WHERE status = 'A';
+        ");
+
+
+        // --- View User dan Role ---
+        // View User dan Role (Tidak punya status spesifik di tabel master)
+        DB::statement("
+            CREATE OR REPLACE VIEW view_user_role AS
             SELECT
                 u.iduser,
                 u.username,
@@ -75,9 +128,10 @@ return new class extends Migration
             JOIN role r ON u.idrole = r.idrole;
         ");
 
-         // View untuk Margin Penjualan
+        // --- View Margin Penjualan ---
+        // View Margin Penjualan (Semua Status)
         DB::statement("
-            CREATE VIEW view_margin_penjualan AS
+            CREATE OR REPLACE VIEW view_margin_penjualan_all AS
             SELECT
                 mp.idmargin_penjualan,
                 mp.persen,
@@ -92,6 +146,30 @@ return new class extends Migration
             JOIN user u ON mp.iduser = u.iduser;
         ");
 
+         // View Margin Penjualan (Hanya Aktif)
+         DB::statement("
+            CREATE OR REPLACE VIEW view_margin_penjualan_active AS
+            SELECT
+                mp.idmargin_penjualan,
+                mp.persen,
+                mp.created_at AS tanggal_dibuat,
+                mp.updated_at AS tanggal_diupdate,
+                u.username AS dibuat_oleh,
+                'Aktif' AS status_margin
+            FROM margin_penjualan mp
+            JOIN user u ON mp.iduser = u.iduser
+            WHERE mp.status = 1;
+        ");
+
+        // --- View Role ---
+        // View Role (Tidak punya status spesifik di tabel master)
+        DB::statement("
+            CREATE OR REPLACE VIEW view_role_all AS
+            SELECT
+                idrole,
+                nama_role
+            FROM role;
+        ");
     }
 
     /**
@@ -99,10 +177,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("DROP VIEW IF EXISTS view_atk");
-        DB::statement("DROP VIEW IF EXISTS view_satuan");
-        DB::statement("DROP VIEW IF EXISTS view_vendor");
-        DB::statement("DROP VIEW IF EXISTS view_user_role");
-        DB::statement("DROP VIEW IF EXISTS view_margin_penjualan");
+        DB::statement("DROP VIEW IF EXISTS view_barang_all");
+        DB::statement("DROP VIEW IF EXISTS view_barang_active");
+        DB::statement("DROP VIEW IF EXISTS view_satuan_all");
+        DB::statement("DROP VIEW IF EXISTS view_satuan_active");
+        DB::statement("DROP VIEW IF EXISTS view_vendor_all");
+        DB::statement("DROP VIEW IF EXISTS view_vendor_active");
+        DB::statement("DROP VIEW IF EXISTS view_user_role"); // Tetap ada
+        DB::statement("DROP VIEW IF EXISTS view_margin_penjualan_all");
+        DB::statement("DROP VIEW IF EXISTS view_margin_penjualan_active");
+        DB::statement("DROP VIEW IF EXISTS view_role_all"); // Baru ditambahkan
     }
 };
