@@ -26,7 +26,7 @@
             <table class="table table-striped table-hover">
                 <thead class="table-dark">
                     <tr>
-                        <th scope="col">ID PO</th>
+                        <th scope="col">ID Penerimaan</th>
                         <th scope="col">Tanggal</th>
                         <th scope="col">Referensi PO</th>
                         <th scope="col">Status Penerimaan</th>

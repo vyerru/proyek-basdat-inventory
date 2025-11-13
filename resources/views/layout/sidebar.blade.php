@@ -15,21 +15,21 @@
         </h6>
         <ul class="nav flex-column mb-2">
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('master.barang') ? 'active' : '' }}" 
+                <a class="nav-link {{ request()->routeIs('master.barang*') ? 'active' : '' }}" 
                    href="{{ route('master.barang') }}">
                     <i class="bi bi-box-seam"></i>
                     Data Barang
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('master.satuan') ? 'active' : '' }}" 
+                <a class="nav-link {{ request()->routeIs('master.satuan*') ? 'active' : '' }}" 
                    href="{{ route('master.satuan') }}">
                     <i class="bi bi-rulers"></i>
                     Data Satuan
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('master.vendor') ? 'active' : '' }}" 
+                <a class="nav-link {{ request()->routeIs('master.vendor*') ? 'active' : '' }}" 
                    href="{{ route('master.vendor') }}">
                     <i class="bi bi-truck"></i>
                     Data Vendor
@@ -43,7 +43,14 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('master.margin') ? 'active' : '' }}" 
+                <a class="nav-link {{ request()->routeIs('master.role') ? 'active' : '' }}" 
+                   href="{{ route('master.role') }}">
+                    <i class="bi bi-person-badge"></i>
+                    Data Role
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('master.margin*') ? 'active' : '' }}" 
                    href="{{ route('master.margin') }}">
                     <i class="bi bi-percent"></i>
                     Data Margin
@@ -59,7 +66,7 @@
                 <a class="nav-link {{ request()->routeIs('transaksi.pengadaan') ? 'active' : '' }}" 
                    href="{{ route('transaksi.pengadaan') }}">
                     <i class="bi bi-clipboard-data"></i>
-                    Pengadaan (PO)
+                    Pengadaan
                 </a>
             </li>
             <li class="nav-item">
