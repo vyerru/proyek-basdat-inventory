@@ -70,9 +70,6 @@ Route::middleware(['auth'])->group(function () {
         // 1. READ (Halaman utama Pengadaan, memanggil SP Filter)
         Route::get('/pengadaan', [TransaksiController::class, 'pengadaan'])->name('pengadaan');
 
-        // 2. CREATE (Menampilkan form 'Buat PO Header')
-        Route::get('/pengadaan/create', [TransaksiController::class, 'createPengadaan'])->name('pengadaan.create');
-
         // 3. CREATE (Menyimpan PO Header baru)
         Route::post('/pengadaan', [TransaksiController::class, 'storePengadaan'])->name('pengadaan.store');
 

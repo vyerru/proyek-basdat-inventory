@@ -14,10 +14,11 @@
                     <option value="Selesai" {{ $status_terpilih == 'Selesai' ? 'selected' : '' }}>Selesai (Diterima)</option>
                 </select>
             </div>
+            
             <div>
-                <a href="{{ route('transaksi.pengadaan.create') }}" class="btn btn-primary">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#buatPOModal">
                     <i class="bi bi-plus-circle"></i> Buat PO Baru
-                </a>
+                </button>
             </div>
         </form>
     </div>
@@ -31,7 +32,9 @@
 @endif
 @if($errors->any())
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        {{ $errors->first('error') }}
+        @foreach ($errors->all() as $error)
+            {{ $error }}<br>
+        @endforeach
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 @endif
@@ -47,8 +50,6 @@
                         <th scope="col">Status</th>
                         <th scope="col">Vendor</th>
                         <th scope="col">Pembuat PO</th>
-                        <th scope="col">Subtotal</th>
-                        <th scope="col">PPN (10%)</th>
                         <th scope="col">Total Nilai</th>
                         <th scope="col">Aksi</th>
                     </tr>
@@ -67,8 +68,6 @@
                         </td>
                         <td>{{ $po->nama_vendor }}</td>
                         <td>{{ $po->pembuat_po }}</td>
-                        <td>Rp {{ number_format($po->subtotal_nilai, 0, ',', '.') }}</td>
-                        <td>Rp {{ number_format($po->ppn, 0, ',', '.') }}</td>
                         <td>Rp {{ number_format($po->total_nilai, 0, ',', '.') }}</td>
                         <td>
                             <a href="{{ route('transaksi.pengadaan.show', $po->idpengadaan) }}" class="btn btn-info btn-sm" title="Lihat Detail">
@@ -77,10 +76,56 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="9" class="text-center">Data tidak ditemukan.</td></tr>
+                    <tr><td colspan="8" class="text-center">Data tidak ditemukan.</td></tr>
                     @endforelse
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="buatPOModal" tabindex="-1" aria-labelledby="buatPOModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="buatPOModalLabel">Buat Purchase Order Baru (Header)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('transaksi.pengadaan.store') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p>Langkah 1: Tentukan vendor. Anda akan diarahkan ke halaman detail untuk menambah barang.</p>
+                    
+                    <div class="mb-3">
+                        <label for="vendor_idvendor" class="form-label">Vendor</label>
+                        <select class="form-select @error('vendor_idvendor') is-invalid @enderror" 
+                                id="vendor_idvendor" name="vendor_idvendor" required>
+                            <option value="">Pilih Vendor...</option>
+                            @foreach($vendors as $vendor)
+                                <option value="{{ $vendor->idvendor }}">
+                                    {{ $vendor->nama_vendor }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('vendor_idvendor')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <div class="form-text mb-3">
+                        <ul>
+                            <li><b>ID User</b> akan diisi otomatis ({{ Auth::user()->username }}).</li>
+                            <li><b>Status</b> akan diatur ke "Aktif".</li>
+                            <li><b>Subtotal</b> akan diatur ke 0.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Lanjutkan & Tambah Detail</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

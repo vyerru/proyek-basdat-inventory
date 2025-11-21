@@ -12,38 +12,24 @@ class TransaksiController extends Controller
     public function pengadaan(Request $request)
     {
         // 1. Ambil nilai status dari form filter
-        $status = $request->input('status'); // 'Aktif', 'Selesai', atau null
+        $status = $request->input('status');
 
         // 2. Buat query dasar ke VIEW Anda
-        $query = DB::table('view_laporan_pengadaan'); 
-
-        // 3. Tambahkan filter HANYA JIKA status dipilih
+        $query = DB::table('view_laporan_pengadaan');
         if ($status) {
-            // 'status_po' adalah nama kolom di 'view_header_pengadaan'
             $query->where('status_po', $status);
         }
-
-        // 4. Eksekusi query, urutkan berdasarkan terbaru
         $data = $query->orderBy('tgl_pengadaan', 'DESC')->get();
-        
-        // 5. Kirim data ke view
-        return view('transaksi.pengadaan', [ // Pastikan path view benar
-            'data_pengadaan' => $data, 
-            'status_terpilih' => $status
-        ]);
-    }
 
-    // ... (Semua method Anda yang lain seperti createPengadaan, storePengadaan, dll,
-    //      tetap sama dan tidak perlu diubah) ...
-    
-    /**
-     * CREATE: Menampilkan form 'Buat PO Header'
-     */
-    public function createPengadaan()
-    {
-        // Ambil data vendor untuk dropdown
+        // (BARU) Ambil data vendor untuk dropdown di modal create
         $vendors = DB::select("SELECT * FROM view_vendor_aktif");
-        return view('transaksi.create.pengadaan_create', ['vendors' => $vendors]);
+
+        // 5. Kirim data ke view
+        return view('transaksi.pengadaan', [
+            'data_pengadaan' => $data,
+            'status_terpilih' => $status,
+            'vendors' => $vendors  // <-- Kirim data vendor ke view
+        ]);
     }
 
     public function storePengadaan(Request $request)
@@ -51,8 +37,8 @@ class TransaksiController extends Controller
         $request->validate(['vendor_idvendor' => 'required|integer']);
 
         $id_user_login = Auth::id();
-        $status_default = 'A'; 
-        
+        $status_default = 'A';
+
         DB::insert("
             INSERT INTO pengadaan (user_iduser, vendor_idvendor, status, subtotal_nilai, ppn, total_nilai, timestamp)
             VALUES (?, ?, ?, 0, 0, 0, NOW())
@@ -61,7 +47,7 @@ class TransaksiController extends Controller
         $newPengadaanId = DB::getPdo()->lastInsertId();
 
         return redirect()->route('transaksi.pengadaan.show', $newPengadaanId)
-                         ->with('success', 'Header PO berhasil dibuat. Silakan tambahkan detail barang.');
+            ->with('success', 'Header PO berhasil dibuat. Silakan tambahkan detail barang.');
     }
 
     public function showPengadaan($id)
@@ -76,7 +62,9 @@ class TransaksiController extends Controller
             [$id]
         );
 
-        if (!$po_header) { abort(404); }
+        if (!$po_header) {
+            abort(404);
+        }
 
         // Ambil data Detail PO yang sudah ada
         $po_detail = DB::select(
@@ -87,9 +75,10 @@ class TransaksiController extends Controller
             [$id]
         );
 
-        // Ambil daftar barang untuk dropdown
+        // (PENTING) Ambil daftar barang untuk dropdown di modal
+        // Kita ambil semua info barang aktif
         $barang_list = DB::select("SELECT * FROM view_barang_aktif");
-        
+
         return view('transaksi.pengadaan_show', [
             'po' => $po_header,
             'details' => $po_detail,
@@ -102,24 +91,28 @@ class TransaksiController extends Controller
      */
     public function storeDetailPengadaan(Request $request, $id_pengadaan)
     {
+        // (Revisi) Validasi hanya idbarang dan jumlah
         $request->validate([
-            'idbarang' => 'required|integer', 
-            'jumlah' => 'required|integer|min:1', 
-            'harga_satuan' => 'required|integer|min:0' 
+            'idbarang' => 'required|integer', // (Poin 2.e)
+            'jumlah' => 'required|integer|min:1', // (Poin 2.c)
         ]);
-        
-        DB::insert("
-            INSERT INTO detail_pengadaan (idpengadaan, idbarang, jumlah, harga_satuan)
-            VALUES (?, ?, ?, ?)
-        ", [
+
+        // (REVISI) Panggil Stored Procedure (Metode Baru)
+        DB::statement("CALL sp_tambah_detail_pengadaan(?, ?, ?)", [
             $id_pengadaan,
             $request->idbarang,
-            $request->jumlah,
-            $request->harga_satuan 
+            $request->jumlah
         ]);
-        
+
+        /* * SAAT INI DATABASE OTOMATIS BEKERJA:
+         * 1. SP mengambil harga dari tabel 'barang' (Revisi 2.b)
+         * 2. SP melakukan INSERT
+         * 3. Trigger 'BEFORE INSERT' menghitung sub_total (2.d)
+         * 4. Trigger 'AFTER INSERT' menghitung total header (1.e, 1.f, 1.g)
+         */
+
         return redirect()->route('transaksi.pengadaan.show', $id_pengadaan)
-                         ->with('success', 'Barang berhasil ditambahkan ke PO.');
+            ->with('success', 'Barang berhasil ditambahkan ke PO.');
     }
 
     /**
@@ -128,14 +121,16 @@ class TransaksiController extends Controller
     public function destroyDetailPengadaan($id_detail)
     {
         $detail = DB::selectOne("SELECT idpengadaan FROM detail_pengadaan WHERE iddetail_pengadaan = ?", [$id_detail]);
-        
-        if (!$detail) { abort(404); }
+
+        if (!$detail) {
+            abort(404);
+        }
         $id_pengadaan = $detail->idpengadaan;
-        
+
         DB::delete("DELETE FROM detail_pengadaan WHERE iddetail_pengadaan = ?", [$id_detail]);
 
         return redirect()->route('transaksi.pengadaan.show', $id_pengadaan)
-                         ->with('success', 'Item barang berhasil dihapus dari PO.');
+            ->with('success', 'Item barang berhasil dihapus dari PO.');
     }
 
     /**
@@ -148,14 +143,14 @@ class TransaksiController extends Controller
             DB::delete("DELETE FROM detail_pengadaan WHERE idpengadaan = ?", [$id]);
             DB::delete("DELETE FROM pengadaan WHERE idpengadaan = ?", [$id]);
             DB::commit();
-            
+
             return redirect()->route('transaksi.pengadaan')
-                             ->with('success', 'PO berhasil dihapus.');
-                             
+                ->with('success', 'PO berhasil dihapus.');
+
         } catch (QueryException $e) {
             DB::rollBack();
             return redirect()->route('transaksi.pengadaan')
-                             ->withErrors(['error' => 'PO tidak bisa dihapus, mungkin sudah memiliki data penerimaan.']);
+                ->withErrors(['error' => 'Pengadaan tidak bisa dihapus, mungkin sudah memiliki data penerimaan.']);
         }
     }
 
@@ -172,11 +167,11 @@ class TransaksiController extends Controller
             // 'status_penerimaan' adalah nama kolom di 'view_header_penerimaan'
             $query->where('status_penerimaan', $status);
         }
-        
+
         $data = $query->orderBy('tgl_terima', 'DESC')->get();
-        
+
         return view('transaksi.penerimaan', [
-            'data_penerimaan' => $data, 
+            'data_penerimaan' => $data,
             'status_terpilih' => $status
         ]);
     }
