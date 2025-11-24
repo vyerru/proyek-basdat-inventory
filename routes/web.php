@@ -79,14 +79,44 @@ Route::middleware(['auth'])->group(function () {
         // 5. CREATE (Menyimpan item detail baru ke PO yang ada)
         Route::post('/pengadaan/{id}/detail', [TransaksiController::class, 'storeDetailPengadaan'])->name('pengadaan.detail.store');
 
-        // 6. DELETE (Menghapus 1 item detail dari PO)
+        // 6. DELETE (Menghapus 1 item detail dari P    O)
         Route::delete('/pengadaan/detail/{id_detail}', [TransaksiController::class, 'destroyDetailPengadaan'])->name('pengadaan.detail.destroy');
 
         // 7. DELETE (Menghapus 1 PO beserta semua detailnya)
         Route::delete('/pengadaan/{id}', [TransaksiController::class, 'destroyPengadaan'])->name('pengadaan.destroy');
 
         // --- Rute Penerimaan ---
+        // 1. Read (List Header)
         Route::get('/penerimaan', [TransaksiController::class, 'penerimaan'])->name('penerimaan');
+
+        // 2. Create Header (Form/Modal pilih PO)
+        Route::post('/penerimaan', [TransaksiController::class, 'storePenerimaan'])->name('penerimaan.store');
+
+        // 3. Read Detail (Halaman Detail + Modal Tambah Barang)
+        Route::get('/penerimaan/{id}', [TransaksiController::class, 'showPenerimaan'])->name('penerimaan.show');
+
+        // 4. Create Detail (Submit Modal Barang)
+        Route::post('/penerimaan/{id}/detail', [TransaksiController::class, 'storeDetailPenerimaan'])->name('penerimaan.detail.store');
+
+        // 5. Delete Header
+        Route::delete('/penerimaan/{id}', [TransaksiController::class, 'destroyPenerimaan'])->name('penerimaan.destroy');
+
+        Route::post('/penerimaan/{id}/lock', [TransaksiController::class, 'lockPenerimaan'])->name('penerimaan.lock');
+
+        Route::get('/penjualan', [TransaksiController::class, 'penjualan'])->name('penjualan');
+
+        // Mulai Transaksi Baru
+        Route::post('/penjualan', [TransaksiController::class, 'storePenjualan'])->name('penjualan.store');
+
+        // Halaman PROSES (Edit Mode)
+        Route::get('/penjualan/{id}/proses', [TransaksiController::class, 'prosesPenjualan'])->name('penjualan.proses');
+
+        // Action Tambah/Hapus Item
+        Route::post('/penjualan/{id}/detail', [TransaksiController::class, 'storeDetailPenjualan'])->name('penjualan.detail.store');
+        Route::delete('/penjualan/detail/{id_detail}', [TransaksiController::class, 'destroyDetailPenjualan'])->name('penjualan.detail.destroy');
+
+        // Halaman READ-ONLY (Detail Selesai)
+        Route::get('/penjualan/{id}/detail', [TransaksiController::class, 'showPenjualan'])->name('penjualan.show');
     });
 
     // --- Grup Laporan (Read-Only) ---

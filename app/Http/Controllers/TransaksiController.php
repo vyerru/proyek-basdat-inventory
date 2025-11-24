@@ -104,13 +104,6 @@ class TransaksiController extends Controller
             $request->jumlah
         ]);
 
-        /* * SAAT INI DATABASE OTOMATIS BEKERJA:
-         * 1. SP mengambil harga dari tabel 'barang' (Revisi 2.b)
-         * 2. SP melakukan INSERT
-         * 3. Trigger 'BEFORE INSERT' menghitung sub_total (2.d)
-         * 4. Trigger 'AFTER INSERT' menghitung total header (1.e, 1.f, 1.g)
-         */
-
         return redirect()->route('transaksi.pengadaan.show', $id_pengadaan)
             ->with('success', 'Barang berhasil ditambahkan ke PO.');
     }
@@ -159,20 +152,237 @@ class TransaksiController extends Controller
      */
     public function penerimaan(Request $request)
     {
-        $status = $request->input('status');
+        // Mengambil data dari View Laporan Penerimaan (Header)
+        // Kita group by idpenerimaan agar tampil unik per transaksi
+        $data = DB::table('view_laporan_penerimaan')
+            ->select('idpenerimaan', 'tgl_terima', 'referensi_po_id', 'penerima', 'status_penerimaan')
+            ->groupBy('idpenerimaan', 'tgl_terima', 'referensi_po_id', 'penerima', 'status_penerimaan')
+            ->orderBy('tgl_terima', 'desc')
+            ->get();
 
-        $query = DB::table("view_laporan_penerimaan");
-
-        if ($status) {
-            // 'status_penerimaan' adalah nama kolom di 'view_header_penerimaan'
-            $query->where('status_penerimaan', $status);
-        }
-
-        $data = $query->orderBy('tgl_terima', 'DESC')->get();
-
+        // Ambil daftar PO Aktif/Selesai untuk dropdown "Buat Penerimaan Baru"
+        $po_list = DB::select("
+        SELECT idpengadaan, nama_vendor 
+        FROM view_laporan_pengadaan 
+        WHERE status_po = 'Aktif'
+        GROUP BY idpengadaan, nama_vendor 
+        ORDER BY idpengadaan DESC
+    ");
         return view('transaksi.penerimaan', [
             'data_penerimaan' => $data,
-            'status_terpilih' => $status
+            'po_list' => $po_list
+        ]);
+    }
+
+    public function storePenerimaan(Request $request)
+    {
+        $request->validate(['idpengadaan' => 'required|integer']);
+
+        $id_user = Auth::id();
+
+        // [UBAH] Status default 'P' (Proses Input)
+        DB::insert("
+            INSERT INTO penerimaan (idpengadaan, iduser, status, created_at)
+            VALUES (?, ?, 'P', NOW())
+        ", [$request->idpengadaan, $id_user]);
+
+        $newId = DB::getPdo()->lastInsertId();
+
+        return redirect()->route('transaksi.penerimaan.show', $newId)
+            ->with('success', 'Header penerimaan dibuat. Silakan input barang satu per satu.');
+    }
+
+    public function lockPenerimaan($id)
+    {
+        // Update status menjadi 'D' (Diterima)
+        DB::update("UPDATE penerimaan SET status = 'D' WHERE idpenerimaan = ?", [$id]);
+
+        return redirect()->route('transaksi.penerimaan.show', $id)
+            ->with('success', 'Penerimaan berhasil diselesaikan dan dikunci.');
+    }
+
+    public function showPenerimaan($id)
+    {
+        // Ambil Header
+        $header = DB::selectOne("
+            SELECT p.*, u.username, v.nama_vendor 
+            FROM penerimaan p
+            JOIN user u ON p.iduser = u.iduser
+            JOIN pengadaan po ON p.idpengadaan = po.idpengadaan
+            JOIN vendor v ON po.vendor_idvendor = v.idvendor
+            WHERE p.idpenerimaan = ?
+        ", [$id]);
+
+        if (!$header)
+            abort(404);
+
+        // Ambil Detail Barang yang sudah diterima
+        $details = DB::select("
+            SELECT dp.*, b.nama AS nama_barang 
+            FROM detail_penerimaan dp
+            JOIN barang b ON dp.barang_idbarang = b.idbarang
+            WHERE dp.idpenerimaan = ?
+        ", [$id]);
+
+        // Ambil Daftar Barang yang ADA di PO ini (untuk dropdown modal)
+        // Kita hanya boleh menerima barang yang dipesan di PO terkait
+        $barang_po = DB::select("
+            SELECT dp.idbarang, b.nama
+            FROM detail_pengadaan dp
+            JOIN barang b ON dp.idbarang = b.idbarang
+            WHERE dp.idpengadaan = ?
+        ", [$header->idpengadaan]);
+
+        return view('transaksi.penerimaan_show', [
+            'penerimaan' => $header,
+            'details' => $details,
+            'barang_list' => $barang_po
+        ]);
+    }
+
+    public function storeDetailPenerimaan(Request $request, $id)
+    {
+        $request->validate([
+            'idbarang' => 'required|integer',
+            'jumlah_terima' => 'required|integer|min:1',
+            'harga_terima' => 'required|integer|min:0',
+        ]);
+
+        try {
+            // 1. Coba Panggil SP
+            DB::statement("CALL sp_tambah_detail_penerimaan(?, ?, ?, ?)", [
+                $id,
+                $request->idbarang,
+                $request->jumlah_terima,
+                $request->harga_terima
+            ]);
+
+            return redirect()->route('transaksi.penerimaan.show', $id)
+                ->with('success', 'Barang berhasil diterima.');
+
+        } catch (QueryException $e) {
+            // 2. Tangkap Error
+            $errorCode = $e->getMessage();
+
+            // Cek apakah errornya adalah 'ERROR_LIMIT' yang kita buat di SP
+            if (str_contains($errorCode, 'ERROR_LIMIT')) {
+
+                // A. Ambil ID Pengadaan dari tabel penerimaan (untuk parameter function)
+                $id_pengadaan = DB::table('penerimaan')->where('idpenerimaan', $id)->value('idpengadaan');
+
+                // B. Panggil Function Database untuk ambil sisa stok
+                $sisa = DB::selectOne("SELECT fn_get_sisa_penerimaan(?, ?) as sisa", [
+                    $id_pengadaan,
+                    $request->idbarang
+                ])->sisa;
+
+                // C. Susun Pesan Error di Laravel
+                $pesan = "Gagal! Jumlah diterima melebihi pesanan. Sisa yang belum diterima hanya: <strong>{$sisa}</strong> unit.";
+
+                return redirect()->back()->withErrors(['error' => $pesan])->withInput();
+            }
+
+            // Error lain (misal koneksi putus, dll)
+            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan database: ' . $e->getMessage()]);
+        }
+    }
+
+    public function penjualan(Request $request)
+    {
+        // Ambil data penjualan dari view yang sudah ada (view_laporan_penjualan)
+        // Kita group by header agar tidak duplikat
+        $data = DB::table('view_laporan_penjualan')
+            ->select('idpenjualan', 'tgl_penjualan', 'kasir', 'total_transaksi')
+            ->groupBy('idpenjualan', 'tgl_penjualan', 'kasir', 'total_transaksi')
+            ->orderBy('tgl_penjualan', 'desc')
+            ->get();
+
+        return view('transaksi.penjualan', ['data_penjualan' => $data]);
+    }
+
+    /**
+     * CREATE: Header Penjualan
+     */
+ public function storePenjualan(Request $request)
+    {
+        $id_user = Auth::id();
+        
+        // Pastikan ada margin aktif
+        $margin = DB::selectOne("SELECT idmargin_penjualan FROM margin_penjualan WHERE status = 1 LIMIT 1");
+        if (!$margin) return back()->withErrors(['error' => 'Margin belum disetting.']);
+
+        // Buat Header
+        DB::insert("
+            INSERT INTO penjualan (created_at, subtotal_nilai, ppn, total_nilai, iduser, idmargin_penjualan)
+            VALUES (NOW(), 0, 0, 0, ?, ?)
+        ", [$id_user, $margin->idmargin_penjualan]);
+
+        $newId = DB::getPdo()->lastInsertId();
+
+        // Redirect ke Mode Edit
+        return redirect()->route('transaksi.penjualan.proses', $newId);
+    }
+
+    /**
+     * PAGE: Halaman Proses Input (Edit Mode)
+     */
+    public function prosesPenjualan($id)
+    {
+        $penjualan = DB::selectOne("SELECT * FROM penjualan WHERE idpenjualan = ?", [$id]);
+        
+        // Ambil Detail
+        $details = DB::select("
+            SELECT dp.*, b.nama AS nama_barang 
+            FROM detail_penjualan dp 
+            JOIN barang b ON dp.idbarang = b.idbarang 
+            WHERE penjualan_idpenjualan = ?", [$id]);
+
+        // Ambil Barang & Stok untuk Modal (Harga dihitung live nanti saat insert)
+        $barang_list = DB::select("
+            SELECT idbarang, nama, fn_hitung_stok(idbarang) as stok 
+            FROM barang WHERE status = 1");
+
+        return view('transaksi.penjualan_proses', [
+            'penjualan' => $penjualan,
+            'details' => $details,
+            'barang_list' => $barang_list
+        ]);
+    }
+
+    /**
+     * ACTION: Simpan Item (Panggil SP Baru)
+     */
+    public function storeDetailPenjualan(Request $request, $id)
+    {
+        $request->validate(['idbarang' => 'required', 'jumlah' => 'required|min:1']);
+
+        try {
+            // SP ini sekarang otomatis menghitung harga jual
+            DB::statement("CALL sp_tambah_detail_penjualan(?, ?, ?)", [
+                $id, $request->idbarang, $request->jumlah
+            ]);
+            return redirect()->route('transaksi.penjualan.proses', $id)->with('success', 'Barang ditambahkan.');
+        } catch (QueryException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * PAGE: Halaman Read-Only (Detail Selesai)
+     */
+    public function showPenjualan($id)
+    {
+        // Sama seperti proses, tapi view-nya beda (tanpa tombol edit)
+        $penjualan = DB::selectOne("SELECT * FROM view_laporan_penjualan WHERE idpenjualan = ?", [$id]);
+        $details = DB::select("
+            SELECT dp.*, b.nama AS nama_barang 
+            FROM detail_penjualan dp 
+            JOIN barang b ON dp.idbarang = b.idbarang 
+            WHERE penjualan_idpenjualan = ?", [$id]);
+
+        return view('transaksi.penjualan_show', [
+            'penjualan' => $penjualan,
+            'details' => $details
         ]);
     }
 }

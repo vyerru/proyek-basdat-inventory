@@ -1,43 +1,28 @@
 @extends('layout.app')
 @section('title', 'Data Pengadaan (PO)')
-@section('page_title', 'Data Pengadaan (PO)')
+@section('page_title', 'Data Pengadaan')
 
 @section('content')
 <div class="card shadow-sm mb-4">
     <div class="card-body">
         <form action="{{ route('transaksi.pengadaan') }}" method="GET" class="d-flex justify-content-between align-items-center">
             <div class="col-md-4">
-                <label for="status" class="form-label">Tampilkan Status PO</label>
+                <label for="status" class="form-label">Tampilkan Status Pengadaan</label>
                 <select id="status" name="status" class="form-select" onchange="this.form.submit()">
                     <option value="" {{ $status_terpilih == null ? 'selected' : '' }}>Semua Status</option>
-                    <option value="Aktif" {{ $status_terpilih == 'Aktif' ? 'selected' : '' }}>Aktif (Dipesan)</option>
+                    <option value="Aktif" {{ $status_terpilih == 'Aktif' ? 'selected' : '' }}>Proses (Dipesan)</option>
                     <option value="Selesai" {{ $status_terpilih == 'Selesai' ? 'selected' : '' }}>Selesai (Diterima)</option>
                 </select>
             </div>
             
             <div>
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#buatPOModal">
-                    <i class="bi bi-plus-circle"></i> Buat PO Baru
+                    <i class="bi bi-plus-circle"></i> Buat Pengadaan Baru
                 </button>
             </div>
         </form>
     </div>
 </div>
-
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-@if($errors->any())
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @foreach ($errors->all() as $error)
-            {{ $error }}<br>
-        @endforeach
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
 
 <div class="card shadow-sm">
     <div class="card-body">
@@ -115,9 +100,9 @@
                     
                     <div class="form-text mb-3">
                         <ul>
-                            <li><b>ID User</b> akan diisi otomatis ({{ Auth::user()->username }}).</li>
-                            <li><b>Status</b> akan diatur ke "Aktif".</li>
-                            <li><b>Subtotal</b> akan diatur ke 0.</li>
+                            <li><b>ID User</b> ({{ Auth::user()->username }}).</li>
+                            <li><b>Status</b>.</li>
+                            <li><b>Subtotal</b></li>
                         </ul>
                     </div>
                 </div>

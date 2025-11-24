@@ -17,7 +17,7 @@
             @csrf
             @method('DELETE')
             <button type="submit" class="btn btn-danger btn-sm" title="Hapus PO">
-                <i class="bi bi-trash"></i> Hapus PO
+                <i class="bi bi-trash"></i> Hapus Pengadaan
             </button>
         </form>
     </div>
@@ -27,7 +27,7 @@
                 <strong>Vendor:</strong> {{ $po->nama_vendor }}
             </div>
             <div class="col-md-4">
-                <strong>Pembuat PO:</strong> {{ $po->username }}
+                <strong>Pembuat Pengadaan:</strong> {{ $po->username }}
             </div>
             <div class="col-md-4">
                 <strong>Tanggal Dibuat:</strong> {{ \Carbon\Carbon::parse($po->timestamp)->format('d M Y H:i') }}
@@ -36,15 +36,15 @@
         <hr>
         <div class="row text-center">
             <div class="col-md-4">
-                <h6 class="text-muted">Subtotal (Otomatis)</h6>
+                <h6 class="text-muted">Subtotal</h6>
                 <h5>Rp {{ number_format($po->subtotal_nilai, 0, ',', '.') }}</h5>
             </div>
             <div class="col-md-4">
-                <h6 class="text-muted">PPN 10% (Otomatis)</h6>
+                <h6 class="text-muted">PPN 10%</h6>
                 <h5>Rp {{ number_format($po->ppn, 0, ',', '.') }}</h5>
             </div>
             <div class="col-md-4">
-                <h6 class="text-muted">Total Nilai (Otomatis)</h6>
+                <h6 class="text-muted">Total Nilai</h6>
                 <h5>Rp {{ number_format($po->total_nilai, 0, ',', '.') }}</h5>
             </div>
         </div>
@@ -53,7 +53,7 @@
 
 <div class="mb-3 d-flex justify-content-end">
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tambahBarangModal">
-        <i class="bi bi-plus-circle"></i> Tambah Barang ke PO
+        <i class="bi bi-plus-circle"></i> Tambah Barang ke Pengadaan
     </button>
 </div>
 
@@ -68,9 +68,9 @@
                     <tr>
                         <th>ID Detail</th>
                         <th>Nama Barang</th>
-                        <th>Harga Beli (dari Master)</th>
+                        <th>Harga Beli </th>
                         <th>Jumlah</th>
-                        <th>Subtotal (Otomatis)</th>
+                        <th>Subtotal</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -94,7 +94,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center">Belum ada barang yang ditambahkan ke PO ini.</td>
+                        <td colspan="6" class="text-center">Belum ada barang yang ditambahkan ke Pengadaan ini.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -108,7 +108,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="tambahBarangModalLabel">Tambah Barang (Poin 2.b)</h5>
+                <h5 class="modal-title" id="tambahBarangModalLabel">Tambah Barang</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ route('transaksi.pengadaan.detail.store', $po->idpengadaan) }}" method="POST">
@@ -131,7 +131,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Harga Satuan (Otomatis dari Master)</label>
+                        <label class="form-label">Harga Satuan</label>
                         <input type="text" class="form-control" id="harga_satuan_display" value="Rp 0" readonly disabled>
                     </div>
 
