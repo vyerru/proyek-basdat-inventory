@@ -90,13 +90,6 @@
         </h6>
         <ul class="nav flex-column mb-2">
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('laporan.penjualan') ? 'active' : '' }}" 
-                   href="{{ route('laporan.penjualan') }}">
-                    <i class="bi bi-file-earmark-text"></i>
-                    Laporan Penjualan
-                </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('laporan.kartu.stok') ? 'active' : '' }}" 
                    href="{{ route('laporan.kartu.stok') }}">
                     <i class="bi bi-card-checklist"></i>
